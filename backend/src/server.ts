@@ -10,6 +10,7 @@ import rateLimit from 'express-rate-limit';
 
 import { env } from './config/env';
 import { costRouter } from './routes/cost.routes';
+import { securityRouter } from './routes/security.routes';
 import { errorHandler } from './middleware/error-handler.middleware';
 import { logger } from './utils/logger';
 
@@ -59,6 +60,7 @@ app.disable('x-powered-by');
 
 // ─── Routes ─────────────────────────────────────────────────────────────────
 app.use('/api/costs', costRouter);
+app.use('/api/security', securityRouter);
 
 // Root liveness probe (used by Azure App Service)
 app.get('/health', (_req, res) => {

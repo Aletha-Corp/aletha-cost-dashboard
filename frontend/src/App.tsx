@@ -5,6 +5,7 @@ import { ResourceGroupsPage } from './pages/ResourceGroupsPage';
 import { ServicesPage } from './pages/ServicesPage';
 import { EntriesPage } from './pages/EntriesPage';
 import { PersonnelPage } from './pages/PersonnelPage';
+import { SecurityPage } from './pages/SecurityPage';
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/personnel" element={<PersonnelPage />} />
         <Route path="/entries" element={<EntriesPage />} />
+        <Route path="/security" element={<SecurityPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </PageLayout>

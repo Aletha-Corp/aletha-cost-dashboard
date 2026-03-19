@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Layers, List, CloudCog, Users } from 'lucide-react';
+import { LayoutDashboard, Layers, List, CloudCog, Users, ShieldAlert } from 'lucide-react';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Summary', icon: LayoutDashboard },
@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: '/services', label: 'Services', icon: CloudCog },
   { to: '/personnel', label: 'Personnel', icon: Users },
   { to: '/entries', label: 'All Entries', icon: List },
+  { to: '/security', label: 'Security', icon: ShieldAlert },
 ];
 
 export function Sidebar() {
