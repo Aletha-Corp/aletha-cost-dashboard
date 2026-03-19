@@ -1,0 +1,11 @@
+# Azure App Service deployment configuration
+# This file configures the build and startup commands for Azure App Service
+
+[config]
+  # Build command runs during deployment
+  SCM_DO_BUILD_DURING_DEPLOYMENT=false
+
+[web]
+  # Start the Node.js backend server
+  # The backend serves both the API and the static frontend build
+  command = node backend/dist/server.js
