@@ -18,14 +18,12 @@ export interface ServiceCost {
   totalCost: number;
   currency: string;
   resourceCount: number;
-  /** Owner derived from resource tags for this resource type */
   owner?: string;
-  /** Deployment environment derived from resource tags (e.g. prod, staging, dev) */
   environment?: string;
-  /** Build/release info derived from resource tags (build number, version, pipeline, etc.) */
   buildInfo?: string;
-  /** Azure region(s) this service runs in */
   regions?: string[];
+  firstSeen?: string;
+  lastSeen?: string;
 }
 
 export interface ResourceGroupCost {
@@ -33,10 +31,10 @@ export interface ResourceGroupCost {
   totalCost: number;
   currency: string;
   services: ServiceCost[];
-  /** Owner/creator derived from resource group tags (CreatedBy, Owner, etc.) */
   owner?: string;
-  /** Azure subscription this resource group belongs to */
   subscriptionId?: string;
+  createdAt?: string;
+  isActive?: boolean;
 }
 
 export interface DailyCost {

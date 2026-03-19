@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Layers, User, Search, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Layers, User, Search, X, Clock } from 'lucide-react';
 import { useCostsByResourceGroup } from '../hooks/use-costs';
 import { useDateRange } from '../hooks/use-date-range';
 import { DateRangePicker } from '../components/DateRangePicker';
@@ -42,6 +42,21 @@ function ResourceGroupRow({ rg }: { rg: ResourceGroupCost }) {
               <span className="truncate">{rg.owner}</span>
             </span>
           )}
+          {rg.isActive === false ? (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-900/50 text-red-300 border border-red-700/50 shrink-0">
+              Deleted
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-900/40 text-emerald-400 border border-emerald-700/40 shrink-0">
+              Active
+            </span>
+          )}
+          {rg.createdAt && (
+            <span className="flex items-center gap-1 text-xs text-slate-500 shrink-0">
+              <Clock size={10} className="shrink-0" />
+              {new Date(rg.createdAt).toLocaleDateString('en-CA')}
+            </span>
+          )}
         </div>
         <span className="text-slate-100 font-semibold shrink-0 ml-4">
           {formatCurrency(rg.totalCost, rg.currency)}
@@ -56,6 +71,8 @@ function ResourceGroupRow({ rg }: { rg: ResourceGroupCost }) {
                 <th className="text-left pb-2 font-medium">Service</th>
                 <th className="text-left pb-2 font-medium">Resource Type</th>
                 <th className="text-left pb-2 font-medium">Owner</th>
+                <th className="text-left pb-2 font-medium">First Seen</th>
+                <th className="text-left pb-2 font-medium">Last Seen</th>
                 <th className="text-right pb-2 font-medium">Resources</th>
                 <th className="text-right pb-2 font-medium">Cost</th>
               </tr>
@@ -85,6 +102,12 @@ function ResourceGroupRow({ rg }: { rg: ResourceGroupCost }) {
                         {svc.owner}
                       </span>
                     ) : '—'}
+                  </td>
+                  <td className="py-2 pr-4 text-slate-400 text-xs whitespace-nowrap">
+                    {svc.firstSeen ? new Date(svc.firstSeen).toLocaleDateString('en-CA') : '—'}
+                  </td>
+                  <td className="py-2 pr-4 text-slate-400 text-xs whitespace-nowrap">
+                    {svc.lastSeen ? new Date(svc.lastSeen).toLocaleDateString('en-CA') : '—'}
                   </td>
                   <td className="py-2 pr-4 text-right text-slate-400">{svc.resourceCount}</td>
                   <td className="py-2 text-right font-medium text-slate-200">

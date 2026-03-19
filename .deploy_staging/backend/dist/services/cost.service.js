@@ -49,17 +49,42 @@ async function fetchRawCostData(params) {
     return promise;
 }
 async function doFetchRawCostData(params) {
+    const msPerDay = 86400000;
+    const spanDays = (new Date(params.endDate).getTime() - new Date(params.startDate).getTime()) / msPerDay;
+    // Azure Cost Management API hard-limits queries to exactly 1 year.
+    // For ranges longer than 365 days, split into yearly windows and merge.
+    if (spanDays > 365) {
+        logger_1.logger.info(`Range spans ${Math.round(spanDays)} days — splitting into yearly chunks`);
+        const chunks = [];
+        let cursor = new Date(params.startDate);
+        const end = new Date(params.endDate);
+        while (cursor < end) {
+            const chunkEnd = new Date(cursor);
+            chunkEnd.setFullYear(chunkEnd.getFullYear() + 1);
+            chunkEnd.setDate(chunkEnd.getDate() - 1); // one day before the next year start
+            const actualEnd = chunkEnd < end ? chunkEnd : end;
+            chunks.push({
+                startDate: cursor.toISOString().slice(0, 10),
+                endDate: actualEnd.toISOString().slice(0, 10),
+            });
+            cursor = new Date(chunkEnd);
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        const results = [];
+        for (const c of chunks) {
+            results.push(await doFetchRawCostData({ ...params, startDate: c.startDate, endDate: c.endDate }));
+            // Brief pause between chunks to avoid 429 rate-limit errors
+            if (chunks.indexOf(c) < chunks.length - 1)
+                await new Promise((r) => setTimeout(r, 1500));
+        }
+        return results.flat();
+    }
     const credential = (0, azure_credential_service_1.getAzureCredential)();
     const client = new arm_costmanagement_1.CostManagementClient(credential);
     const subscriptionId = params.subscriptionId ?? env_1.env.AZURE_SUBSCRIPTION_ID;
     const scope = `/subscriptions/${subscriptionId}`;
-    // Azure Cost Management API rejects daily-granularity queries that span more
-    // than ~1 year (returns 429). Switch to monthly granularity for large ranges.
-    // Note: the installed beta SDK enum only lists 'Daily'; pass 'Monthly' as a
-    // string literal — the REST API accepts it fine.
-    const msPerDay = 86400000;
-    const spanDays = (new Date(params.endDate).getTime() - new Date(params.startDate).getTime()) / msPerDay;
-    const granularity = (spanDays > 366 ? 'Monthly' : arm_costmanagement_1.KnownGranularityType.Daily);
+    // Use monthly granularity for ranges > 90 days to keep response sizes manageable.
+    const granularity = (spanDays > 90 ? 'Monthly' : arm_costmanagement_1.KnownGranularityType.Daily);
     logger_1.logger.info('Fetching cost data from Azure', {
         scope,
         startDate: params.startDate,
@@ -136,10 +161,11 @@ async function doFetchRawCostData(params) {
  * Returns cost entries grouped by resource group, enriched with owner info from tags.
  */
 async function getCostsByResourceGroup(params) {
-    const [entries, rgOwners, svcMeta] = await Promise.all([
+    const [entries, rgOwners, svcMeta, rgLifecycle] = await Promise.all([
         fetchRawCostData(params),
         (0, resource_metadata_service_1.getResourceGroupOwners)(params.subscriptionId),
         (0, resource_metadata_service_1.getServiceMetadata)(params.subscriptionId),
+        (0, resource_metadata_service_1.getRgLifecycle)(params.subscriptionId),
     ]);
     const rgMap = new Map();
     for (const entry of entries) {
@@ -162,6 +188,8 @@ async function getCostsByResourceGroup(params) {
                 environment: meta?.environment,
                 buildInfo: meta?.buildInfo,
                 regionSet: new Set(),
+                minDate: entry.usageDate,
+                maxDate: entry.usageDate,
             });
         }
         const svc = rg.services.get(svcKey);
@@ -169,22 +197,33 @@ async function getCostsByResourceGroup(params) {
         svc.resourceCount += 1;
         if (entry.region)
             svc.regionSet.add(entry.region);
+        if (entry.usageDate < svc.minDate)
+            svc.minDate = entry.usageDate;
+        if (entry.usageDate > svc.maxDate)
+            svc.maxDate = entry.usageDate;
     }
     return Array.from(rgMap.entries())
-        .map(([resourceGroup, data]) => ({
-        resourceGroup,
-        totalCost: Math.round(data.totalCost * 100) / 100,
-        currency: data.currency,
-        subscriptionId: data.subscriptionId,
-        owner: rgOwners.get(resourceGroup.toLowerCase()),
-        services: Array.from(data.services.values())
-            .map(({ regionSet, ...s }) => ({
-            ...s,
-            totalCost: Math.round(s.totalCost * 100) / 100,
-            regions: regionSet.size > 0 ? Array.from(regionSet).sort() : undefined,
-        }))
-            .sort((a, b) => b.totalCost - a.totalCost),
-    }))
+        .map(([resourceGroup, data]) => {
+        const lc = rgLifecycle.get(resourceGroup.toLowerCase());
+        return {
+            resourceGroup,
+            totalCost: Math.round(data.totalCost * 100) / 100,
+            currency: data.currency,
+            subscriptionId: data.subscriptionId,
+            owner: rgOwners.get(resourceGroup.toLowerCase()),
+            createdAt: lc?.createdAt,
+            isActive: lc?.isActive,
+            services: Array.from(data.services.values())
+                .map(({ regionSet, minDate, maxDate, ...s }) => ({
+                ...s,
+                totalCost: Math.round(s.totalCost * 100) / 100,
+                regions: regionSet.size > 0 ? Array.from(regionSet).sort() : undefined,
+                firstSeen: minDate,
+                lastSeen: maxDate,
+            }))
+                .sort((a, b) => b.totalCost - a.totalCost),
+        };
+    })
         .sort((a, b) => b.totalCost - a.totalCost);
 }
 /**

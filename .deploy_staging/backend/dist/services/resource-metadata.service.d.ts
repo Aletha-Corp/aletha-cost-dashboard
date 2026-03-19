@@ -6,10 +6,20 @@ export interface ServiceMetadata {
     buildInfo?: string;
 }
 /**
- * Returns a map of resource-group-name (lower-cased) → owner string,
- * populated from common owner-related tags on the resource group itself.
+/**
+ * Returns a map of resource-group-name (lower-cased) → owner string.
+ * Priority: owner tag on the RG → activity log creator fallback.
  */
 export declare function getResourceGroupOwners(subscriptionId?: string): Promise<Map<string, string>>;
+/**
+ * Returns a map of rgName (lower-cased) → { createdAt?, isActive }.
+ * Relies on caches populated by getResourceGroupOwners() having been called first;
+ * if not yet populated, calls getResourceGroupOwners() to trigger the fill.
+ */
+export declare function getRgLifecycle(subscriptionId?: string): Promise<Map<string, {
+    createdAt?: string;
+    isActive: boolean;
+}>>;
 /**
  * Returns a map of resourceType (lower-cased) → ServiceMetadata,
  * derived from tags on individual resources. A single Azure API pass

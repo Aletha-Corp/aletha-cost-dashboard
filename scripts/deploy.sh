@@ -81,20 +81,53 @@ echo "==> Waiting for App Service to apply settings and restart..."
 sleep 20
 
 echo "==> Deploying to Azure App Service: ${APP_NAME}..."
-for attempt in 1 2 3; do
-  echo "    Attempt $attempt/3"
-  if az webapp deployment source config-zip \
-    --resource-group "$RG" \
-    --name "$APP_NAME" \
-    --src deploy.zip \
-    --timeout 600; then
+
+# az webapp deploy blocks until Azure accepts the zip.
+# Kudu sometimes drops the TCP connection after receiving the file but before
+# sending the 202 response (RemoteDisconnected / ConnectionError). The deployment
+# still proceeds in that case, so we treat that specific error as non-fatal and
+# fall through to the health-poll. Any other non-zero exit is a real failure.
+DEPLOY_OUT=$(az webapp deploy \
+  --resource-group "$RG" \
+  --name "$APP_NAME" \
+  --src-path deploy.zip \
+  --type zip \
+  --output none 2>&1) && DEPLOY_EXIT=0 || DEPLOY_EXIT=$?
+
+if [[ "$DEPLOY_EXIT" -ne 0 ]]; then
+  if echo "$DEPLOY_OUT" | grep -q "RemoteDisconnected\|ConnectionError\|Connection aborted"; then
+    echo "==> Deploy command disconnected (Kudu connection drop — deployment likely succeeded). Falling through to health check..."
+  else
+    echo "==> Deployment failed:"
+    echo "$DEPLOY_OUT"
+    exit 1
+  fi
+fi
+
+echo "==> Package accepted. Waiting for site to come up..."
+
+# Poll /health every 30s until the app responds (max 10 minutes).
+MAX_WAIT=600
+ELAPSED=0
+POLL_INTERVAL=30
+
+while true; do
+  sleep "$POLL_INTERVAL"
+  ELAPSED=$((ELAPSED + POLL_INTERVAL))
+
+  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
+    "https://${APP_NAME}.azurewebsites.net/health" 2>/dev/null || echo "000")
+
+  echo "    [${ELAPSED}s] HTTP ${HTTP_CODE}"
+
+  # Any real HTTP response means the site is up (401/302 = Easy Auth is running)
+  if [[ "$HTTP_CODE" =~ ^(200|301|302|401|403)$ ]]; then
+    echo "==> Site is live (HTTP ${HTTP_CODE})."
     break
   fi
-  if [[ "$attempt" -lt 3 ]]; then
-    echo "    Deploy failed; retrying in 10s..."
-    sleep 10
-  else
-    echo "    Deploy failed after 3 attempts."
+
+  if [[ "$ELAPSED" -ge "$MAX_WAIT" ]]; then
+    echo "==> Site did not respond within ${MAX_WAIT}s — check App Service logs."
     exit 1
   fi
 done

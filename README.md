@@ -304,3 +304,20 @@ By default any user in your Azure AD tenant can sign in. To limit it further:
 | `CORS_ORIGIN` | ❌ | Allowed CORS origin |
 | `RATE_LIMIT_WINDOW_MS` | ❌ | Rate limit window in ms (default: 900000) |
 | `RATE_LIMIT_MAX` | ❌ | Max requests per window (default: 100) |
+
+
+az role assignment create \
+  --assignee  \
+  --role "Monitoring Reader" \
+  --scope "/subscriptions/11c0d171-ddef-4360-beab-16fae41da859"
+
+curl -s "http://localhost:3001/api/costs/by-resource-group?startDate=2026-02-17&endDate=2026-03-19" \
+  | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(f'Resource groups: {len(data)}')
+for rg in data:
+    print(f\"  {rg['resourceGroup']:45s}  owner={rg.get('owner','—')}\")
+    for svc in rg.get('services', [])[:3]:
+        print(f\"    - {svc['serviceName']:40s}  owner={svc.get('owner','—')}\")
+"

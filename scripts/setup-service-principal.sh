@@ -18,6 +18,21 @@ SP_OUTPUT=$(az ad sp create-for-rbac \
   --scopes "/subscriptions/${SUBSCRIPTION_ID}" \
   --output json)
 
+echo "==> Assigning Reader role (required for resource/tag metadata)..."
+PRINCIPAL_ID=$(echo "$SP_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['appId'])")
+az role assignment create \
+  --assignee "$PRINCIPAL_ID" \
+  --role "Reader" \
+  --scope "/subscriptions/${SUBSCRIPTION_ID}" \
+  --output none
+
+echo "==> Assigning Monitoring Reader role (required for activity log / creator info)..."
+az role assignment create \
+  --assignee "$PRINCIPAL_ID" \
+  --role "Monitoring Reader" \
+  --scope "/subscriptions/${SUBSCRIPTION_ID}" \
+  --output none
+
 TENANT_ID=$(az account show --query tenantId -o tsv)
 CLIENT_ID=$(echo "$SP_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['appId'])")
 CLIENT_SECRET=$(echo "$SP_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['password'])")

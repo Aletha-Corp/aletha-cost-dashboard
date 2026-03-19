@@ -21,6 +21,10 @@ export interface ResourceGroupCost {
   owner?: string;
   /** Azure subscription this resource group belongs to */
   subscriptionId?: string;
+  /** ISO date of RG creation from Activity Log (within last 90 days) */
+  createdAt?: string;
+  /** true = RG still exists; false = deleted */
+  isActive?: boolean;
 }
 
 export interface ServiceCost {
@@ -37,6 +41,10 @@ export interface ServiceCost {
   buildInfo?: string;
   /** Azure region(s) this service runs in */
   regions?: string[];
+  /** Earliest usageDate this service appeared in the queried range */
+  firstSeen?: string;
+  /** Most recent usageDate this service appeared in the queried range */
+  lastSeen?: string;
 }
 
 export interface CostSummary {

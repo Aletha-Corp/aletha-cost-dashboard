@@ -46,6 +46,9 @@ export function ServicesPage() {
         if (existing) {
           existing.totalCost += svc.totalCost;
           existing.resourceCount += svc.resourceCount;
+          // Expand the date range seen across RGs
+          if (svc.firstSeen && (!existing.firstSeen || svc.firstSeen < existing.firstSeen)) existing.firstSeen = svc.firstSeen;
+          if (svc.lastSeen  && (!existing.lastSeen  || svc.lastSeen  > existing.lastSeen))  existing.lastSeen  = svc.lastSeen;
         } else {
           serviceMap.set(key, { ...svc });
         }
@@ -175,6 +178,8 @@ export function ServicesPage() {
                     <th className="text-left px-5 py-3 font-medium">Resource Type</th>
                     <th className="text-left px-5 py-3 font-medium">Owner</th>
                     <th className="text-left px-5 py-3 font-medium">Build Info</th>
+                    <th className="text-left px-5 py-3 font-medium">First Seen</th>
+                    <th className="text-left px-5 py-3 font-medium">Last Seen</th>
                     <th className="text-left px-5 py-3 font-medium">Region</th>
                     <th className="text-right px-5 py-3 font-medium">Resources</th>
                     <th className="text-right px-5 py-3 font-medium">Cost</th>
@@ -231,6 +236,12 @@ export function ServicesPage() {
                               )}
                             </div>
                           ) : <span className="text-slate-600">—</span>}
+                        </td>
+                        <td className="px-5 py-3 text-xs text-slate-400 whitespace-nowrap">
+                          {svc.firstSeen ? new Date(svc.firstSeen).toLocaleDateString('en-CA') : <span className="text-slate-600">—</span>}
+                        </td>
+                        <td className="px-5 py-3 text-xs text-slate-400 whitespace-nowrap">
+                          {svc.lastSeen ? new Date(svc.lastSeen).toLocaleDateString('en-CA') : <span className="text-slate-600">—</span>}
                         </td>
                         <td className="px-5 py-3 text-xs max-w-[140px]">
                           {svc.regions && svc.regions.length > 0 ? (
